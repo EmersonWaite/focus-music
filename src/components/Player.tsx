@@ -24,6 +24,9 @@ const DEFAULT_OPTIONS: PlaybackOptions = {
 export function Player() {
   const [status, setStatus] = useState<AppStatus>('idle');
   const [isPlaying, setIsPlaying] = useState(false);
+  // True only while the initial async start() is in flight — controls button disabled state
+  // independently of status transitions so the button never flickers.
+  const [isStarting, setIsStarting] = useState(false);
   const [options, setOptions] = useState<PlaybackOptions>(DEFAULT_OPTIONS);
   const [genSource, setGenSource] = useState<string>('algorithmic');
   const [magentaMsg, setMagentaMsg] = useState<string>('');
@@ -79,13 +82,17 @@ export function Player() {
     const scheduler = schedulerRef.current;
     if (!music || !scheduler) return;
 
-    if (!music.isInitialized) {
-      await music.initialize();
+    setIsStarting(true);
+    try {
+      if (!music.isInitialized) {
+        await music.initialize();
+      }
+      const preset = getPreset(optionsRef.current.preset);
+      await scheduler.start(preset, optionsRef.current);
+      setIsPlaying(true);
+    } finally {
+      setIsStarting(false);
     }
-
-    const preset = getPreset(optionsRef.current.preset);
-    await scheduler.start(preset, optionsRef.current);
-    setIsPlaying(true);
   }, []);
 
   const handlePause = useCallback(() => {
@@ -141,7 +148,9 @@ export function Player() {
   // -------------------------------------------------------------------------
   // Render
   // -------------------------------------------------------------------------
-  const isLoading = status === 'initializing' || status === 'generating';
+  // Button is only locked while the initial start() call is in flight.
+  // Routine buffer refills and status transitions don't affect interactivity.
+  const isLoading = isStarting;
   const preset = getPreset(options.preset);
 
   return (

@@ -107,8 +107,8 @@ export class Scheduler {
     this.musicEngine.applyConfig(preset.instrument);
     this.musicEngine.setVolume(options.volume);
 
-    // Pre-generate initial phrases so transport starts with music ready
-    this.setStatus('generating');
+    // Pre-generate initial phrases so transport starts with music ready.
+    // We stay in 'initializing' throughout — no status churn during startup.
     for (let i = 0; i < INITIAL_PHRASES; i++) {
       await this.generateAndScheduleNext(preset, options);
     }
@@ -199,8 +199,10 @@ export class Scheduler {
     if (this.isGenerating) return;
     this.isGenerating = true;
 
+    // Only change status when recovering from a real buffer gap.
+    // Routine proactive refills (and startup) should not touch status
+    // so the play button and status indicator don't flicker.
     const wasBuffering = this._status === 'buffering';
-    if (!wasBuffering) this.setStatus('generating');
 
     try {
       const phrase = await this.generationEngine.generateNext(
@@ -216,7 +218,8 @@ export class Scheduler {
       this.bufferEndSeconds += phrase.duration;
       this.lastPhrase = phrase;
 
-      if (wasBuffering || this._status === 'generating') {
+      // Transition out of 'buffering' only once we have audio ready
+      if (wasBuffering) {
         this.setStatus('playing');
       }
     } catch (err) {
