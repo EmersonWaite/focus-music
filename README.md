@@ -2,7 +2,7 @@
 
 > Instrumental focus music generated live in your browser. No streaming, no server, no gap in the audio.
 
-**Live app:** [Deployed URL — see deployment section]
+**Live app:** https://focus-music.pages.dev
 
 ---
 
